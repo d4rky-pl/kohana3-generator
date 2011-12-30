@@ -43,8 +43,3 @@ It is possible to create relations directly through generator. Syntax is based o
 
 ** YOU SHOULD NOT ADD FIELD IF YOU HAVE ALREADY CREATED A RELATION FROM IT **
      (it will probably break and it's not really a smart idea, seriously)
-
-@author Michał Matyas <michal@6irc.net>
-@license MIT License
-@link http://github.com/d4rky-pl/kohana3-generator
-
