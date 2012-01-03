@@ -116,7 +116,6 @@ class Controller_Generator extends Controller
   --save           Save to file (by default, generator throws everything up to STDOUT)
   --force          Force save (ignores if file already exists)
 
-
 ';
 
 		exit(1);
@@ -131,86 +130,88 @@ class Controller_Generator extends Controller
 		foreach($field as $k=>$v) $field[$k] = trim($v);
 
 		$options = array();
-		$_formo['label'] = $field['field_name'];
-
-		switch($field['field_name'])
+		if(in_array($field['field_name'], array('belongs_to', 'has_one', 'has_many')))
 		{
-			/* relations */
+			if(!isset($field['options']))
+			{
+				$field['options'] = Inflector::singular($field['field_type']).'_id';
+			}
+			
+			$options = array('foreign_key' => $field['options']);
 
-			case 'belongs_to':
-				if(isset($field['options']))
-				{
-					$options = array('foreign_key' => $field['options']);
-				}
+			switch($field['field_name'])
+			{
+				/* relations */
 
-				$_relations['belongs_to'][] = array($field['field_type'] => $options);
-				$_formo['orm_primary_val'] = 'id';
-			break;
+				case 'belongs_to':
+					$_relations['belongs_to'] = array($field['field_type'] => $options);
+					$_formo['orm_primary_val'] = 'id';
+				break;
 
-			case 'has_one':
-				if(isset($field['options']))
-				{
-					$options = array('foreign_key' => $field['options']);
-				}
-				
-				$_relations['has_one'][] = array($field['field_type'] => $options);
-				$_formo['orm_primary_val'] = 'id';
-			break;
+				case 'has_one':
+					$_relations['has_one'] = array($field['field_type'] => $options);
+					$_formo['orm_primary_val'] = 'id';
+				break;
 
-			case 'has_many':
-				if(isset($field['options']))
-				{
-					$options = array('foreign_key' => $field['options']);
-				}
-				
-				$_relations['has_many'][] = array($field['field_type'] => $options);
-				$_formo['orm_primary_val'] = 'id';
-			break;
+				case 'has_many':
+					$_relations['has_many'] = array($field['field_type'] => $options);
+					$_formo['orm_primary_val'] = 'id';
+				break;
+			}
+			$_formo['label'] = $field['options'];
 
-			default:
+			$this->_rules[$field['options']] = array_merge(Arr::get($this->_rules, $field['field_name'], array()), $_rules);
+			$this->_formo[$field['options']] = array_merge(Arr::get($this->_formo, $field['field_name'], array()), $_formo);
+		}
+		else
+		{
+			switch($field['field_type'])
+			{
+				case 'int':
+					$_rules[] = array('digit');
+				break;
 
-				switch($field['field_type'])
-				{
-					case 'int':
-						$_rules[] = array('digit');
-					break;
+				case 'varchar':
+					$_rules[] = array('max_length', array(':value', $field['options']));
+				break;
 
-					case 'varchar':
-						$_rules[] = array('max_length', array(':value', $field['options']));
-					break;
+				case 'text':
+					$_formo['driver'] = 'textarea';
+				break;
 
-					case 'text':
-						$_formo['driver'] = 'textarea';
-					break;
+				case 'blob':
+					$_formo['render'] = FALSE;
+				break;
 
-					case 'blob':
-						$_formo['render'] = FALSE;
-					break;
+				case 'date':
+				case 'datetime':
+				case 'timestamp':
+					$_rules[] = array('date');
+					$_formo['callbacks'] = array('pass' => array( array('Model_'.$this->_name.'::format_date', array(':field'))));
+					$this->_methods['format_date'] = TRUE;
+				break;
 
-					case 'date':
-					case 'datetime':
-					case 'timestamp':
-						$_rules[] = array('date');
-						$_formo['callbacks'] = array('pass' => array( array('Model_'.$this->_name.'::format_date', array(':field'))));
-						$this->_methods['format_date'] = TRUE;
-					break;
+				/* special types */
 
-					/* special types */
+				case 'primary':
+					$_formo['render'] = FALSE;
+					$_formo['editable'] = FALSE;
+				break;
 
-					case 'primary':
-						$_formo['render'] = FALSE;
-						$_formo['editable'] = FALSE;
-					break;
+				case 'file':
+					$_formo['driver'] = 'file';
+					$_formo['callbacks'] = array('pass' => array( array('Model_'.$this->_name.'::upload_file', array(':field', ':last_val'))));
+					$this->_methods['upload_file'] = TRUE;						
+				break;
+			}
 
-					case 'file':
-						$_formo['driver'] = 'file';
-						$_formo['callbacks'] = array('pass' => array( array('Model_'.$this->_name.'::upload_file', array(':field', ':last_val'))));
-						$this->_methods['upload_file'] = TRUE;						
-					break;
-				}
-				$this->_rules[$field['field_name']] = array_merge(Arr::get($this->_rules, $field['field_name'], array()), $_rules);
-				$this->_formo[$field['field_name']] = array_merge(Arr::get($this->_formo, $field['field_name'], array()), $_formo);
-			break;
+			if(Arr::get($_formo, 'render') !== FALSE)
+			{
+				$_formo['label'] = $field['field_name'];
+			}
+
+			$this->_rules[$field['field_name']] = array_merge(Arr::get($this->_rules, $field['field_name'], array()), $_rules);
+			$this->_formo[$field['field_name']] = array_merge(Arr::get($this->_formo, $field['field_name'], array()), $_formo);
 		}
 		$this->_relations = array_merge_recursive($this->_relations, $_relations);
 	}
@@ -274,7 +275,13 @@ class Model_'.$this->_name.' extends ORM {
 '.
 (array_key_exists('upload_file', $this->_methods) ? 
 '	public static function upload_file($field, $previous_file, $directory = null, $filename = null)
-	{
+	{		
+		if(!Upload::not_empty($file))
+		{
+			$field->val($field->last_val());
+			return true;
+		}
+		
 		if(!empty($previous_file))
 		{
 			@unlink($directory ?: Upload::$default_directory . "/" . $previous_file);
@@ -296,12 +303,6 @@ class Model_'.$this->_name.' extends ORM {
 				$field->error($error[0]);
 			}
 			return false;
-		}
-		
-		if(!Upload::not_empty($file))
-		{
-			$field->val(" ");
-			return true;
 		}
 
 		if($filename === NULL)
