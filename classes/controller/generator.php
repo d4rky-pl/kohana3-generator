@@ -298,7 +298,7 @@ class Model_'.$this->_name.' extends ORM {
 		if(!$valid->check())
 		{
 			$errors = $valid->errors();
-			foreach($errors["_external"] as $field => $error)
+			foreach($errors as $name => $error)
 			{
 				$field->error($error[0]);
 			}
