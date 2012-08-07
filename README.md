@@ -1,9 +1,10 @@
-Model Generator, pre-alpha version
-==================================
+Model Generator, 0.2v
+=====================
 
-    Usage: php index.php --uri='generator/index' --name="" --fields="" [--directory] [--save] [--force]
+    Usage: php index.php --uri='generator/index' --name="" --fields="" [--auto] [--directory] [--save] [--force]
     
       --name           Model name
+      --auto           Tries automatically create model based on database schema (prone to errors)
       --fields         Fields (syntax below)
       --directory      Model directory (defaults to APPPATH.'classes/model/'
       --save           Save to file (by default, generator throws everything up to STDOUT)
