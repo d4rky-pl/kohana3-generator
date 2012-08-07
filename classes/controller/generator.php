@@ -447,6 +447,13 @@ class Model_'.$this->_name.' extends ORM {
 (array_key_exists('upload_file', $this->_methods) ?
 '	public static function upload_file($field, $previous_file, $directory = null, $filename = null)
 	{
+		if($directory === NULL)
+		{
+			$directory = Upload::$default_directory;
+		}
+
+		$file = $field->val();
+
 		if(!Upload::not_empty($file))
 		{
 			$field->val($field->last_val());
@@ -455,10 +462,8 @@ class Model_'.$this->_name.' extends ORM {
 
 		if(!empty($previous_file))
 		{
-			@unlink($directory ?: Upload::$default_directory . "/" . $previous_file);
+			@unlink($directory . "/" . $previous_file);
 		}
-
-		$file = $field->val();
 
 		$valid = new Validation(array("file" => $file));
 		$valid->rules("file", array(
